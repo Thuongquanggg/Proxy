@@ -1,4 +1,4 @@
-name: ☢️ Proxy Tự động 3m
+name: ☢️ Proxy Tự động 5m
 
 on:
   # Kích hoạt một job mới mỗi 6 giờ một lần
@@ -51,5 +51,5 @@ jobs:
             
             # Bước 6: Chờ 3 phút (180 giây)
             echo "Đã xong. Chờ 180 giây..."
-            sleep 180
+            sleep 300
           done
