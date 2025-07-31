@@ -1,51 +1,36 @@
 
-name: Cập nhật Proxy Tự Động (Phiên bản Sửa lỗi)
+# Tên workflow, rất đơn giản
+name: Tạo File Test Đơn Giản
 
+# Chỉ chạy khi bạn bấm nút "Run workflow" để chúng ta có thể kiểm tra ngay lập tức
 on:
-  # Cho phép chạy thủ công để test ngay lập tức
   workflow_dispatch:
-  # Chạy tự động mỗi 5 phút
-  schedule:
-    - cron: '*/5 * * * *'
 
 jobs:
-  update-proxies:
+  # Tên của công việc
+  create-a-file:
+    # Chạy trên máy ảo Ubuntu
     runs-on: ubuntu-latest
 
-    # QUAN TRỌNG: Cấp quyền cho Action để có thể ghi (commit & push) vào repo
+    # Cấp quyền GHI vào repository. Dòng này CỰC KỲ QUAN TRỌNG.
     permissions:
       contents: write
 
+    # Các bước thực hiện
     steps:
-      # Bước 1: Lấy code từ repo về máy ảo của Action
-      - name: Checkout repository
+      # 1. Lấy code của bạn về máy ảo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Bước 2: Tải danh sách proxy và ghi đè vào file proxies.txt
-      - name: Tải và lưu danh sách proxy
+      # 2. Tạo một file tên là test.txt với nội dung "Hello"
+      - name: Tạo file test.txt
+        run: echo "Hello from GitHub Actions" > test.txt
+
+      # 3. Commit và đẩy file vừa tạo lên repository của bạn
+      - name: Commit và Push file
         run: |
-          echo "Bắt đầu tải proxy..."
-          curl -L --fail -o proxies.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
-          echo "Đã tải xong file proxies.txt. Kiểm tra kích thước file:"
-          ls -l proxies.txt
-
-      # Bước 3: Commit và Push các thay đổi lên GitHub
-      - name: Commit và Push
-        run: |
-          # Cấu hình Git với thông tin của bot
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-
-          # Thêm file vào để chuẩn bị commit
-          git add proxies.txt
-
-          # Chỉ commit và push nếu có sự thay đổi thực sự trong file
-          # Lệnh 'git diff' sẽ báo hiệu nếu có thay đổi
-          if git diff --staged --quiet; then
-            echo "Không có thay đổi trong file proxies.txt. Bỏ qua commit."
-          else
-            echo "Phát hiện có thay đổi. Đang tiến hành commit và push..."
-            git commit -m "Cập nhật danh sách proxy tự động"
-            git push
-            echo "Đã push thành công!"
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test.txt
+          git commit -m "Thêm file test.txt tự động"
+          git push
