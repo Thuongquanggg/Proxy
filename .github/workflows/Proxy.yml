@@ -1,7 +1,5 @@
-name: ☢️ Proxy Tự động 5m
-
+name: ☢️ Proxy Tự động 3m
 on:
-  # Kích hoạt một job mới mỗi 6 giờ một lần
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
@@ -9,47 +7,29 @@ on:
 jobs:
   long-running-update:
     runs-on: ubuntu-latest
-    # Dừng job sau 355 phút để tránh bị GitHub ngắt đột ngột
     timeout-minutes: 355
     permissions:
       contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Cấu hình Git
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
-
       - name: Bắt đầu vòng lặp cập nhật (Luôn Commit)
         run: |
           while true; do
             echo "-------------------------------------------"
             echo "Bắt đầu chu kỳ mới lúc: $(date)"
-            
-            # Bước 1: Đồng bộ với repository để tránh xung đột khi push
-            # Điều này quan trọng để job không bị lỗi giữa chừng
             git pull
-            
-            # Bước 2: Tải proxy mới và ghi đè vào file
             echo "Đang tải proxy và ghi đè vào proxy.txt..."
             curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
-            
-            # Bước 3: Luôn thêm file vào khu vực chuẩn bị commit
             git add proxy.txt
-            
-            # Bước 4: Tạo một commit mới.
-            # --allow-empty: Đây là chìa khóa. Nó cho phép tạo commit ngay cả khi không có thay đổi nội dung.
             echo "Đang tạo commit mới..."
             git commit --allow-empty -m "CI: Cập nhật proxy lúc $(date)"
-            
-            # Bước 5: Đẩy commit mới lên repository
             echo "Đang đẩy lên GitHub..."
             git push
-            
-            # Bước 6: Chờ 3 phút (180 giây)
             echo "Đã xong. Chờ 180 giây..."
-            sleep 300
+            sleep 180
           done
