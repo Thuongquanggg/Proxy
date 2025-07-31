@@ -1,0 +1,50 @@
+# Tên của workflow, sẽ hiển thị trong tab "Actions" của repository
+name: 🅾️ Proxy Tự động 5m
+
+# Điều kiện để kích hoạt workflow
+on:
+  # Chạy tự động theo lịch trình (sử dụng cú pháp cron)
+  schedule:
+    # Chạy mỗi 5 phút một lần. Đây là tần suất tối thiểu của GitHub.
+    - cron: '*/5 * * * *'
+  
+  # Cho phép chạy thủ công từ tab "Actions" để kiểm tra
+  workflow_dispatch:
+
+# Các công việc (jobs) sẽ được thực thi
+jobs:
+  update-proxies:
+    # Sử dụng máy ảo Ubuntu phiên bản mới nhất để chạy job
+    runs-on: ubuntu-latest
+
+    # Cấp quyền cho Action để có thể ghi (commit & push) vào repository
+    permissions:
+      contents: write
+
+    # Các bước thực thi của job
+    steps:
+      # Bước 1: Checkout code từ repository về máy ảo
+      # Điều này cần thiết để có thể chỉnh sửa file proxy.txt
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Bước 2: Tải danh sách proxy mới và ghi đè vào file proxy.txt
+      # Dấu ">" sẽ xóa nội dung cũ và ghi nội dung mới vào file.
+      - name: Tải danh sách proxy mới
+        run: |
+          curl "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text" > proxy.txt
+
+      # Bước 3: Commit và đẩy các thay đổi lên repository
+      # Sử dụng một action có sẵn để tự động hóa việc commit
+      - name: Commit và đẩy thay đổi
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          # Nội dung của commit message
+          commit_message: 'CI: Cập nhật danh sách proxy tự động'
+          
+          # Chỉ commit file proxy.txt nếu có thay đổi
+          file_pattern: proxy.txt
+          
+          # Thông tin người commit (để biết đây là commit tự động)
+          commit_user_name: GitHub Actions Bot
+          commit_user_email: actions@github.com
