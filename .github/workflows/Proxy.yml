@@ -18,35 +18,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Cấu hình Git để có thể commit
       - name: Cấu hình Git
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
-      # Vòng lặp chính để cập nhật mỗi 3 phút
-      - name: Bắt đầu vòng lặp cập nhật
+      - name: Bắt đầu vòng lặp cập nhật (Luôn Commit)
         run: |
           while true; do
             echo "-------------------------------------------"
             echo "Bắt đầu chu kỳ mới lúc: $(date)"
             
-            # Tải proxy mới
-            echo "Đang tải proxy..."
+            # Bước 1: Đồng bộ với repository để tránh xung đột khi push
+            # Điều này quan trọng để job không bị lỗi giữa chừng
+            git pull
+            
+            # Bước 2: Tải proxy mới và ghi đè vào file
+            echo "Đang tải proxy và ghi đè vào proxy.txt..."
             curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
             
-            # Chỉ commit và push nếu file proxy.txt thực sự có thay đổi
-            if ! git diff --quiet proxy.txt; then
-              echo "Phát hiện thay đổi. Đang commit..."
-              git add proxy.txt
-              git commit -m "CI: Cập nhật danh sách proxy tự động (vòng lặp)"
-              # Cố gắng đẩy lên, nếu thất bại (do có commit khác) thì thử lại ở lần sau
-              git push || echo "Đẩy code thất bại, sẽ thử lại sau 3 phút."
-            else
-              echo "Không có thay đổi, bỏ qua commit."
-            fi
+            # Bước 3: Luôn thêm file vào khu vực chuẩn bị commit
+            git add proxy.txt
             
-            # Chờ 3 phút (180 giây)
+            # Bước 4: Tạo một commit mới.
+            # --allow-empty: Đây là chìa khóa. Nó cho phép tạo commit ngay cả khi không có thay đổi nội dung.
+            echo "Đang tạo commit mới..."
+            git commit --allow-empty -m "CI: Cập nhật proxy lúc $(date)"
+            
+            # Bước 5: Đẩy commit mới lên repository
+            echo "Đang đẩy lên GitHub..."
+            git push
+            
+            # Bước 6: Chờ 3 phút (180 giây)
             echo "Đã xong. Chờ 180 giây..."
             sleep 180
           done
