@@ -1,6 +1,6 @@
 
 # Tên của workflow
-name: Cập nhật Proxy từ ProxyScrape (Bản gốc)
+name: Cập nhật Proxy (Luôn tạo Commit)
 
 # Các sự kiện sẽ kích hoạt workflow này
 on:
@@ -13,7 +13,7 @@ on:
 
 # Các công việc (jobs) sẽ được thực thi
 jobs:
-  update-proxy-list:
+  update-and-commit:
     # Chạy trên máy ảo Ubuntu
     runs-on: ubuntu-latest
 
@@ -30,23 +30,24 @@ jobs:
       # Bước 2: Tải danh sách proxy trực tiếp từ ProxyScrape
       - name: Tải và lưu danh sách proxy
         run: |
-          echo "Bắt đầu tải danh sách proxy từ ProxyScrape..."
-          # Sử dụng URL gốc mà bạn yêu cầu
           curl -L --fail -o proxies.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
-          echo "Đã tải xong. Kích thước file:"
-          ls -l proxies.txt
 
-      # Bước 3: Commit và Push nếu có thay đổi
-      - name: Commit và Push nếu có thay đổi
+      # Bước 3: Luôn luôn Commit và Push
+      - name: Commit và Push (kể cả khi không có thay đổi)
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Thêm file vào để chuẩn bị commit
           git add proxies.txt
-          if git diff --staged --quiet; then
-            echo "Không có thay đổi trong file proxies.txt. Bỏ qua commit."
-          else
-            echo "Phát hiện có thay đổi. Đang tiến hành commit và push..."
-            git commit -m "Cập nhật danh sách proxy tự động từ ProxyScrape"
-            git push
-            echo "Đã push thành công!"
-          fi
+          
+          # Tạo nội dung commit với dấu thời gian hiện tại (giờ UTC)
+          COMMIT_MESSAGE="Heartbeat: Cập nhật proxy lúc $(date -u)"
+          
+          # Commit với tùy chọn --allow-empty để luôn tạo commit mới
+          git commit --allow-empty -m "$COMMIT_MESSAGE"
+          
+          # Đẩy commit lên repository
+          git push
+          
+          echo "Đã tạo commit mới thành công với nội dung: $COMMIT_MESSAGE"
