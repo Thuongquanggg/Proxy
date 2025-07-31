@@ -1,4 +1,5 @@
 name: ☢️ Proxy Tự động 3m
+
 on:
   schedule:
     - cron: '0 */6 * * *'
@@ -10,26 +11,46 @@ jobs:
     timeout-minutes: 355
     permissions:
       contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Cấu hình Git
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
+
       - name: Bắt đầu vòng lặp cập nhật (Luôn Commit)
         run: |
           while true; do
             echo "-------------------------------------------"
             echo "Bắt đầu chu kỳ mới lúc: $(date)"
-            git pull
+            
+            # Thực hiện git pull và kiểm tra lỗi
+            if ! git pull; then
+              echo "Lỗi khi đồng bộ với repository. Thoát khỏi vòng lặp."
+              exit 1
+            fi
+            
             echo "Đang tải proxy và ghi đè vào proxy.txt..."
             curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
+            
+            # Log nội dung của proxy.txt
+            echo "Nội dung của proxy.txt:"
+            cat proxy.txt
+            
             git add proxy.txt
+            
             echo "Đang tạo commit mới..."
             git commit --allow-empty -m "CI: Cập nhật proxy lúc $(date)"
+            
             echo "Đang đẩy lên GitHub..."
-            git push
+            if ! git push; then
+              echo "Lỗi khi đẩy lên GitHub. Thoát khỏi vòng lặp."
+              exit 1
+            fi
+            
             echo "Đã xong. Chờ 180 giây..."
             sleep 180
           done
