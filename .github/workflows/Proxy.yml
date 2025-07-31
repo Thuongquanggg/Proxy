@@ -1,50 +1,52 @@
-# Tên của workflow, sẽ hiển thị trong tab "Actions" của repository
-name: 🌼 Proxy Tự động 5m
+name: ☢️ Proxy Tự động 3m (Cảnh báo: Rất tốn tài nguyên)
 
-# Điều kiện để kích hoạt workflow
 on:
-  # Chạy tự động theo lịch trình (sử dụng cú pháp cron)
+  # Kích hoạt một job mới mỗi 6 giờ một lần
   schedule:
-    # Chạy mỗi 5 phút một lần. Đây là tần suất tối thiểu của GitHub.
-    - cron: '*/5 * * * *'
-  
-  # Cho phép chạy thủ công từ tab "Actions" để kiểm tra
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
-# Các công việc (jobs) sẽ được thực thi
 jobs:
-  update-proxies:
-    # Sử dụng máy ảo Ubuntu phiên bản mới nhất để chạy job
+  long-running-update:
     runs-on: ubuntu-latest
-
-    # Cấp quyền cho Action để có thể ghi (commit & push) vào repository
+    # Dừng job sau 355 phút để tránh bị GitHub ngắt đột ngột
+    timeout-minutes: 355
     permissions:
       contents: write
 
-    # Các bước thực thi của job
     steps:
-      # Bước 1: Checkout code từ repository về máy ảo
-      # Điều này cần thiết để có thể chỉnh sửa file proxy.txt
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Bước 2: Tải danh sách proxy mới và ghi đè vào file proxy.txt
-      # Dấu ">" sẽ xóa nội dung cũ và ghi nội dung mới vào file.
-      - name: Tải danh sách proxy mới
+      # Cấu hình Git để có thể commit
+      - name: Cấu hình Git
         run: |
-          curl "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text" > proxy.txt
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
 
-      # Bước 3: Commit và đẩy các thay đổi lên repository
-      # Sử dụng một action có sẵn để tự động hóa việc commit
-      - name: Commit và đẩy thay đổi
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          # Nội dung của commit message
-          commit_message: 'CI: Cập nhật danh sách proxy tự động'
-          
-          # Chỉ commit file proxy.txt nếu có thay đổi
-          file_pattern: proxy.txt
-          
-          # Thông tin người commit (để biết đây là commit tự động)
-          commit_user_name: GitHub Actions Bot
-          commit_user_email: actions@github.com
+      # Vòng lặp chính để cập nhật mỗi 3 phút
+      - name: Bắt đầu vòng lặp cập nhật
+        run: |
+          while true; do
+            echo "-------------------------------------------"
+            echo "Bắt đầu chu kỳ mới lúc: $(date)"
+            
+            # Tải proxy mới
+            echo "Đang tải proxy..."
+            curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
+            
+            # Chỉ commit và push nếu file proxy.txt thực sự có thay đổi
+            if ! git diff --quiet proxy.txt; then
+              echo "Phát hiện thay đổi. Đang commit..."
+              git add proxy.txt
+              git commit -m "CI: Cập nhật danh sách proxy tự động (vòng lặp)"
+              # Cố gắng đẩy lên, nếu thất bại (do có commit khác) thì thử lại ở lần sau
+              git push || echo "Đẩy code thất bại, sẽ thử lại sau 3 phút."
+            else
+              echo "Không có thay đổi, bỏ qua commit."
+            fi
+            
+            # Chờ 3 phút (180 giây)
+            echo "Đã xong. Chờ 180 giây..."
+            sleep 180
+          done
