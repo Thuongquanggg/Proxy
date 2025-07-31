@@ -1,50 +1,76 @@
 
-# Tên của workflow, sẽ hiển thị trong tab "Actions" của repository
-name: Proxy tự động
+name: Cập nhật Proxy (Chạy trong 3 giờ)
 
-# Các sự kiện sẽ kích hoạt workflow này
 on:
-  # Cho phép chạy thủ công từ tab Actions
   workflow_dispatch:
-
-  # Lên lịch chạy tự động
   schedule:
-    # Chạy mỗi 5 phút. Cú pháp này là cron job.
     - cron: '*/5 * * * *'
 
-# Các công việc (jobs) sẽ được thực thi
 jobs:
   update-proxy-list:
-    # Sử dụng máy ảo Ubuntu phiên bản mới nhất để chạy job
     runs-on: ubuntu-latest
-
-    # Cấp quyền cho workflow để có thể ghi (push) vào repository
     permissions:
       contents: write
 
-    # Các bước thực thi của job
     steps:
-      # Bước 1: Checkout code từ repository về máy ảo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Bước 2: Tải danh sách proxy và ghi đè vào file proxies.txt
+      # Bước 1: Kiểm tra xem có nên tiếp tục chạy không
+      - name: Kiểm tra thời gian chạy
+        id: check_time
+        run: |
+          # File để lưu thời gian bắt đầu
+          START_TIME_FILE=".workflow_start_time"
+          
+          # Nếu file chưa tồn tại, đây là lần chạy đầu tiên
+          if [ ! -f "$START_TIME_FILE" ]; then
+            echo "Lần chạy đầu tiên. Ghi lại thời gian bắt đầu."
+            # Ghi thời gian hiện tại (dưới dạng giây Unix) vào file
+            date +%s > $START_TIME_FILE
+            # Commit file thời gian này vào repo
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git add $START_TIME_FILE
+            git commit -m "Bắt đầu chu kỳ cập nhật proxy"
+            git push
+            # Báo hiệu rằng nên tiếp tục chạy
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Nếu file đã tồn tại, đọc thời gian bắt đầu
+          START_TIME=$(cat $START_TIME_FILE)
+          CURRENT_TIME=$(date +%s)
+          # 3 giờ = 3 * 60 * 60 = 10800 giây
+          ELAPSED_SECONDS=$((CURRENT_TIME - START_TIME))
+
+          echo "Thời gian bắt đầu: $START_TIME"
+          echo "Thời gian hiện tại: $CURRENT_TIME"
+          echo "Thời gian đã trôi qua: $ELAPSED_SECONDS giây"
+
+          if [ $ELAPSED_SECONDS -gt 10800 ]; then
+            echo "Đã quá 3 giờ. Dừng công việc."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "Chưa đủ 3 giờ. Tiếp tục chạy."
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
+      # Bước 2: Tải và lưu proxy (CHỈ KHI điều kiện ở bước 1 là đúng)
       - name: Tải và lưu danh sách proxy
+        if: steps.check_time.outputs.should_run == 'true'
         run: |
           curl -o proxies.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
 
-      # Bước 3: Commit và push file proxies.txt nếu có thay đổi
+      # Bước 3: Commit và Push (CHỈ KHI điều kiện ở bước 1 là đúng)
       - name: Commit và Push thay đổi
+        if: steps.check_time.outputs.should_run == 'true'
         run: |
-          # Cấu hình git với thông tin của bot Github Actions
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          
-          # Thêm file proxies.txt vào staging area
           git add proxies.txt
           
-          # Kiểm tra xem có sự thay đổi nào không. Nếu có mới commit.
-          # Điều này giúp tránh tạo commit trống mỗi 5 phút.
           if ! git diff --staged --quiet; then
             git commit -m "Cập nhật danh sách proxy tự động"
             git push
