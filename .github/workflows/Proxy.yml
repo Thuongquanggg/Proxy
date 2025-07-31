@@ -1,14 +1,14 @@
-name: ☢️ Proxy Tự động 3m
+
+name: 🌼 Proxy Tự động 3m
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '*/3 * * * *'  # Chạy mỗi 3 phút
   workflow_dispatch:
 
 jobs:
-  long-running-update:
+  update-proxies:
     runs-on: ubuntu-latest
-    timeout-minutes: 355
     permissions:
       contents: write
 
@@ -21,36 +21,17 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
-      - name: Bắt đầu vòng lặp cập nhật (Luôn Commit)
+      - name: Tải danh sách proxy mới
         run: |
-          while true; do
-            echo "-------------------------------------------"
-            echo "Bắt đầu chu kỳ mới lúc: $(date)"
-            
-            # Thực hiện git pull và kiểm tra lỗi
-            if ! git pull; then
-              echo "Lỗi khi đồng bộ với repository. Thoát khỏi vòng lặp."
-              exit 1
-            fi
-            
-            echo "Đang tải proxy và ghi đè vào proxy.txt..."
-            curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
-            
-            # Log nội dung của proxy.txt
-            echo "Nội dung của proxy.txt:"
-            cat proxy.txt
-            
-            git add proxy.txt
-            
-            echo "Đang tạo commit mới..."
-            git commit --allow-empty -m "CI: Cập nhật proxy lúc $(date)"
-            
-            echo "Đang đẩy lên GitHub..."
-            if ! git push; then
-              echo "Lỗi khi đẩy lên GitHub. Thoát khỏi vòng lặp."
-              exit 1
-            fi
-            
-            echo "Đã xong. Chờ 180 giây..."
-            sleep 180
-          done
+          echo "Đang tải proxy và ghi đè vào proxy.txt..."
+          curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
+          
+          # Log nội dung của proxy.txt để kiểm tra
+          echo "Nội dung của proxy.txt:"
+          cat proxy.txt
+
+      - name: Commit và đẩy thay đổi
+        run: |
+          git add proxy.txt
+          git commit --allow-empty -m "CI: Cập nhật proxy lúc $(date)"
+          git push
