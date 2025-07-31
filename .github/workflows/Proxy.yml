@@ -1,37 +1,53 @@
 
-name: 🌼 Proxy Tự động 3m
+# Tên của workflow, sẽ hiển thị trong tab "Actions" của repository
+name: Proxy tự động
 
+# Các sự kiện sẽ kích hoạt workflow này
 on:
-  schedule:
-    - cron: '*/3 * * * *'  # Chạy mỗi 3 phút
+  # Cho phép chạy thủ công từ tab Actions
   workflow_dispatch:
 
+  # Lên lịch chạy tự động
+  schedule:
+    # Chạy mỗi 5 phút. Cú pháp này là cron job.
+    - cron: '*/5 * * * *'
+
+# Các công việc (jobs) sẽ được thực thi
 jobs:
-  update-proxies:
+  update-proxy-list:
+    # Sử dụng máy ảo Ubuntu phiên bản mới nhất để chạy job
     runs-on: ubuntu-latest
+
+    # Cấp quyền cho workflow để có thể ghi (push) vào repository
     permissions:
       contents: write
 
+    # Các bước thực thi của job
     steps:
+      # Bước 1: Checkout code từ repository về máy ảo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cấu hình Git
+      # Bước 2: Tải danh sách proxy và ghi đè vào file proxies.txt
+      - name: Tải và lưu danh sách proxy
         run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
+          curl -o proxies.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
 
-      - name: Tải danh sách proxy mới
+      # Bước 3: Commit và push file proxies.txt nếu có thay đổi
+      - name: Commit và Push thay đổi
         run: |
-          echo "Đang tải proxy và ghi đè vào proxy.txt..."
-          curl -s -o proxy.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
+          # Cấu hình git với thông tin của bot Github Actions
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          # Log nội dung của proxy.txt để kiểm tra
-          echo "Nội dung của proxy.txt:"
-          cat proxy.txt
-
-      - name: Commit và đẩy thay đổi
-        run: |
-          git add proxy.txt
-          git commit --allow-empty -m "CI: Cập nhật proxy lúc $(date)"
-          git push
+          # Thêm file proxies.txt vào staging area
+          git add proxies.txt
+          
+          # Kiểm tra xem có sự thay đổi nào không. Nếu có mới commit.
+          # Điều này giúp tránh tạo commit trống mỗi 5 phút.
+          if ! git diff --staged --quiet; then
+            git commit -m "Cập nhật danh sách proxy tự động"
+            git push
+          else
+            echo "Không có thay đổi trong danh sách proxy, bỏ qua commit."
+          fi
