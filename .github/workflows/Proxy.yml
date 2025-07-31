@@ -1,36 +1,52 @@
 
-# Tên workflow, rất đơn giản
-name: Tạo File Test Đơn Giản
+# Tên của workflow
+name: Cập nhật Proxy từ ProxyScrape (Bản gốc)
 
-# Chỉ chạy khi bạn bấm nút "Run workflow" để chúng ta có thể kiểm tra ngay lập tức
+# Các sự kiện sẽ kích hoạt workflow này
 on:
+  # Cho phép chạy thủ công để kiểm tra ngay lập tức
   workflow_dispatch:
 
+  # Lên lịch chạy tự động mỗi 5 phút
+  schedule:
+    - cron: '*/5 * * * *'
+
+# Các công việc (jobs) sẽ được thực thi
 jobs:
-  # Tên của công việc
-  create-a-file:
+  update-proxy-list:
     # Chạy trên máy ảo Ubuntu
     runs-on: ubuntu-latest
 
-    # Cấp quyền GHI vào repository. Dòng này CỰC KỲ QUAN TRỌNG.
+    # Cấp quyền GHI vào repository
     permissions:
       contents: write
 
-    # Các bước thực hiện
+    # Các bước thực thi của job
     steps:
-      # 1. Lấy code của bạn về máy ảo
-      - name: Checkout code
+      # Bước 1: Lấy code từ repo về máy ảo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Tạo một file tên là test.txt với nội dung "Hello"
-      - name: Tạo file test.txt
-        run: echo "Hello from GitHub Actions" > test.txt
-
-      # 3. Commit và đẩy file vừa tạo lên repository của bạn
-      - name: Commit và Push file
+      # Bước 2: Tải danh sách proxy trực tiếp từ ProxyScrape
+      - name: Tải và lưu danh sách proxy
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add test.txt
-          git commit -m "Thêm file test.txt tự động"
-          git push
+          echo "Bắt đầu tải danh sách proxy từ ProxyScrape..."
+          # Sử dụng URL gốc mà bạn yêu cầu
+          curl -L --fail -o proxies.txt "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text"
+          echo "Đã tải xong. Kích thước file:"
+          ls -l proxies.txt
+
+      # Bước 3: Commit và Push nếu có thay đổi
+      - name: Commit và Push nếu có thay đổi
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add proxies.txt
+          if git diff --staged --quiet; then
+            echo "Không có thay đổi trong file proxies.txt. Bỏ qua commit."
+          else
+            echo "Phát hiện có thay đổi. Đang tiến hành commit và push..."
+            git commit -m "Cập nhật danh sách proxy tự động từ ProxyScrape"
+            git push
+            echo "Đã push thành công!"
+          fi
